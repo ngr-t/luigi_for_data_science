@@ -11,5 +11,5 @@ Thanks to the `luigi` team.
 
 
 TODO:
-  [ ] Tutorial
-  [ ] Docstrings for the whole public methods.
+  - [ ] Tutorial
+  - [ ] Docstrings for the whole public methods.
