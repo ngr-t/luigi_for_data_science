@@ -30,15 +30,12 @@ class HashableTarget(luigi.Target):
         """The hash value of where output will be created."""
         raise NotImplementedError
 
-    def store_input_hash(
-        self,
-        container_hash,
-        content_hash
-    ):
-        """The hash value of where output will be created."""
+    def store_input_hash(self, content_hash):
+        """Store the hash value of the Task instance."""
         raise NotImplementedError
 
-    def get_current_input_hash(self, container_hash):
+    def get_current_input_hash(self):
+        """Get the hash value of the Task instance who made the current output."""
         raise NotImplementedError
 
 
@@ -56,15 +53,17 @@ class HashableLocalTarget(luigi.LocalTarget):
     def hash_content(self):
         return _calc_md5_of_file(self.fn)
 
-    def store_input_hash(self, container_hash, content_hash):
+    def store_input_hash(self, content_hash):
         shelve_path = self._get_shelve_path()
+        container_hash = self.hash_container()
         with shelve.open(shelve_path, flag="c") as shelf:
             portalocker.Lock(shelve_path, timeout=5)
             shelf[container_hash] = content_hash
             shelf.close()
 
-    def get_current_input_hash(self, container_hash):
+    def get_current_input_hash(self):
         shelve_path = self._get_shelve_path()
+        container_hash = self.hash_container()
         with shelve.open(shelve_path, flag="c") as shelf:
             portalocker.Lock(shelve_path, timeout=5)
             content_hash = shelf[container_hash]
@@ -98,16 +97,12 @@ class TaskWithCheckingInputHash(luigi.Task):
             in self._iterable_input()]
         return [self.__class__] + target_hashes
 
-    def hash_container(self):
-        return self.output().hash_container()
-
     def on_success(self):
         """Update hash values on success."""
         (
             self
             .output()
             .store_input_hash(
-                self.hash_container(),
                 self.hash_input())
         )
 
@@ -124,7 +119,7 @@ class TaskWithCheckingInputHash(luigi.Task):
             stored_input_hash = (
                 self
                 .output()
-                .get_current_input_hash(self.hash_container())
+                .get_current_input_hash()
             )
             current_input_hash = self.hash_input()
             if stored_input_hash == current_input_hash:
