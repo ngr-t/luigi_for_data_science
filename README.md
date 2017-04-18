@@ -8,3 +8,8 @@ The point is that `luigi.Task` by default checks only the existence of output ob
 Here I present an extension of `luigi.Task` more suitable for reproducable data analysis workflows. It override `complete` method of `luigi.Task` as to compare the hash values of inputs to those of previous run.
 
 Thanks to the `luigi` team.
+
+
+TODO:
+  [ ] Tutorial
+  [ ] Docstrings for the whole public methods.

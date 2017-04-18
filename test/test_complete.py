@@ -38,18 +38,22 @@ def setup_complete():
         main_task_cls=SumupTask,
         cmdline_args=[
             "--filename", "test/test_input1.csv",
-            "--hash-db-path", "test/.hash_db"],
+        ],
         local_scheduler=True)
 
 
 @nose.with_setup(setup_complete)
 def test_complete():
+    # The contents of `test_input1.csv` and `test_input2` are identical.
+    # `SumupTask` with `filename=test_input1.csv` is already run in setup,
+    # so `SumupTask` for the both has to be considered as completed.
+    assert SumupTask(
+        filename="test/test_input1.csv",
+    ).complete()
     assert SumupTask(
         filename="test/test_input2.csv",
-        hash_db_path="test/.hash_db").complete()
-    assert not SumupTask(
-        filename="test/test_input2.csv",
-        hash_db_path="test/.hash_db2").complete()
+    ).complete()
+    # `test_input3` is different. Task should not be considered as completed.
     assert not SumupTask(
         filename="test/test_input3.csv",
-        hash_db_path="test/.hash_db").complete()
+    ).complete()
