@@ -2,6 +2,7 @@
 """
 import shelve
 from hashlib import md5
+import abc
 
 import luigi
 import portalocker
@@ -15,31 +16,41 @@ def _calc_md5_of_file(filename):
     return hash_obj.hexdigest()
 
 
+class HashableTargetException(Exception):
+    pass
+
+
 class HashableTarget(luigi.Target):
-    """Base class for `Target` to be used with
-    `TaskWithCheckingInputHash`.
+    """Metaclass of `Target` to be used with `TaskWithCheckingInputHash`.
 
-    This is just for the explaination and you need not to inherit this
-    when you implement new `Target`."""
+    Of course you don't have to inherit this when you implement new `Target`
+    for `TaskWithCheckingInputHash` and just implement the methods below."""
 
+    __metaclass__ = abc.ABCMeta
+
+    @abc.abstractmethod
     def hash_content(self):
         """The hash value of content of the current output."""
         raise NotImplementedError
 
+    @abc.abstractmethod
     def hash_container(self):
         """The hash value of where output will be created."""
         raise NotImplementedError
 
-    def store_input_hash(self, content_hash):
-        """Store the hash value of the Task instance."""
+    @abc.abstractmethod
+    def store_input_hash(self, input_hash):
+        # type: (list[str]) -> None
+        """Store the hash value of the Task instance (not the hash of output)."""
         raise NotImplementedError
 
+    @abc.abstractmethod
     def get_current_input_hash(self):
         """Get the hash value of the Task instance who made the current output."""
         raise NotImplementedError
 
 
-class HashableLocalTarget(luigi.LocalTarget):
+class HashableLocalTarget(HashableTarget, luigi.LocalTarget):
     """:class:`luigi.LocalTarget` with
     :meth:`HashableLocalTarget.hash()` method."""
 
@@ -62,13 +73,17 @@ class HashableLocalTarget(luigi.LocalTarget):
             shelf.close()
 
     def get_current_input_hash(self):
-        shelve_path = self._get_shelve_path()
-        container_hash = self.hash_container()
-        with shelve.open(shelve_path, flag="c") as shelf:
-            portalocker.Lock(shelve_path, timeout=5)
-            content_hash = shelf[container_hash]
-            shelf.close()
-            return content_hash
+        try:
+            shelve_path = self._get_shelve_path()
+            container_hash = self.hash_container()
+            with shelve.open(shelve_path, flag="c") as shelf:
+                portalocker.Lock(shelve_path, timeout=5)
+                content_hash = shelf[container_hash]
+                shelf.close()
+                return content_hash
+        except KeyError:
+            # It's thrown when hash key is not in cache_db.
+            raise HashableTargetException
 
 
 class TaskWithCheckingInputHash(luigi.Task):
@@ -124,8 +139,7 @@ class TaskWithCheckingInputHash(luigi.Task):
             current_input_hash = self.hash_input()
             if stored_input_hash == current_input_hash:
                 return True
-        except KeyError:
-            # It's thrown when hash key is not in cache_db.
+        except HashableTargetException:
             return False
         except AttributeError:
             # It's thrown if the shelved task class isn't imported.
