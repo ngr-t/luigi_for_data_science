@@ -3,6 +3,7 @@
 import shelve
 from hashlib import md5
 import abc
+from warnings import warn
 
 import luigi
 import portalocker
@@ -16,15 +17,20 @@ def _calc_md5_of_file(filename):
     return hash_obj.hexdigest()
 
 
+def _to_iterable_if_not(x):
+    try:
+        return iter(x)
+    except TypeError:
+        # Manage a case with single input.
+        return iter([x])
+
+
 class HashableTargetException(Exception):
     pass
 
 
 class HashableTarget(luigi.Target):
-    """Metaclass of `Target` to be used with `TaskWithCheckingInputHash`.
-
-    Of course you don't have to inherit this when you implement new `Target`
-    for `TaskWithCheckingInputHash` and just implement the methods below."""
+    """Metaclass of `Target` to be used with `TaskWithCheckingInputHash`."""
 
     __metaclass__ = abc.ABCMeta
 
@@ -100,25 +106,11 @@ class TaskWithCheckingInputHash(luigi.Task):
 
     Return value of `output()` must be a single Target."""
 
-    def _iterable_input(self):
-        try:
-            return iter(self.input())
-        except TypeError:
-            # Manage a case with single input.
-            return iter([self.input()])
-
-    def _iterable_requires(self):
-        try:
-            return iter(self.requires())
-        except TypeError:
-            # Manage a case with single requires.
-            return iter([self.requires()])
-
-    def hash_input(self):
+    def _hash_input(self):
         target_hashes = [
             target.hash_content()
             for target
-            in self._iterable_input()]
+            in _to_iterable_if_not(self.input())]
         return [self.__class__] + target_hashes
 
     def on_success(self):
@@ -127,7 +119,7 @@ class TaskWithCheckingInputHash(luigi.Task):
             self
             .output()
             .store_input_hash(
-                self.hash_input())
+                self._hash_input())
         )
 
     def complete(self):
@@ -136,7 +128,7 @@ class TaskWithCheckingInputHash(luigi.Task):
             # Check if output exists.
             return False
 
-        for task in self._iterable_requires():
+        for task in _to_iterable_if_not(self.requires()):
             # Check the completeness of dependent :class:`~luigi.Task`s.
             if not task.complete():
                 return False
@@ -148,7 +140,7 @@ class TaskWithCheckingInputHash(luigi.Task):
                 .output()
                 .get_current_input_hash()
             )
-            current_input_hash = self.hash_input()
+            current_input_hash = self._hash_input()
             if stored_input_hash == current_input_hash:
                 # If the hash values are the same,
                 # this task is considered as completed.
