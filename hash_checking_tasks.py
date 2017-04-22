@@ -46,7 +46,13 @@ class HashableTarget(luigi.Target):
 
     @abc.abstractmethod
     def get_current_input_hash(self):
-        """Get the hash value of the Task instance who made the current output."""
+        """Get the hash value of the Task instance who made the current output.
+
+        This method should throw `HashableTargetException` if you can't get
+        input hash value for some reason but not want to halt the entire workflow.
+        If `HashableTargetException` is thrown, `TaskWithCheckingInputHash.complete()`
+        return False but the entire workflow is halt if other exception is thrown.
+        """
         raise NotImplementedError
 
 
@@ -83,6 +89,9 @@ class HashableLocalTarget(HashableTarget, luigi.LocalTarget):
                 return content_hash
         except KeyError:
             # It's thrown when hash key is not in cache_db.
+            raise HashableTargetException
+        except AttributeError:
+            # It's thrown if the shelved task class isn't imported.
             raise HashableTargetException
 
 
@@ -124,6 +133,7 @@ class TaskWithCheckingInputHash(luigi.Task):
     def complete(self):
         """Check the completeness of `Task` more carefully than the default."""
         if not self.output().exists():
+            # Check if output exists.
             return False
 
         for task in self._iterable_requires():
@@ -131,6 +141,8 @@ class TaskWithCheckingInputHash(luigi.Task):
             if not task.complete():
                 return False
         try:
+            # Check if the hash value of the input of the previous run
+            # is equal to that of this instance.
             stored_input_hash = (
                 self
                 .output()
@@ -138,11 +150,10 @@ class TaskWithCheckingInputHash(luigi.Task):
             )
             current_input_hash = self.hash_input()
             if stored_input_hash == current_input_hash:
+                # If the hash values are the same,
+                # this task is considered as completed.
                 return True
         except HashableTargetException:
-            return False
-        except AttributeError:
-            # It's thrown if the shelved task class isn't imported.
             return False
 
         return False
