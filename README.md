@@ -30,7 +30,7 @@ How does it work?
 `TaskWithCheckingInputHash` rely on `HashableTarget` that:
 
   - we can check the equality of the content of targets by comparing the values of `hash_content()`.
-  - we can check the equality of the places to save targets by comparing the values of `hash_content()`.
+  - we can check the equality of the places to save targets by comparing the values of `hash_container()`.
   - we can retrieve the information about the `Task` which made the current output (if exists) by `get_current_input_hash()`
   - we can store the information about the `Task` which made the output by `store_input_hash()`
 
