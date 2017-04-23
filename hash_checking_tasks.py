@@ -34,11 +34,6 @@ class HashableTarget(luigi.Target):
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
-    def hash_content(self):
-        """The hash value of content of the current output."""
-        raise NotImplementedError
-
-    @abc.abstractmethod
     def hash_container(self):
         """The hash value of where output will be created."""
         raise NotImplementedError
@@ -74,10 +69,6 @@ class HashableLocalTarget(HashableTarget, luigi.LocalTarget):
     def _get_hash_path(self):
         fn = self.fn
         return fn + ".input.pickle"
-
-    def hash_container(self):
-        """Get md5 sum of target filename."""
-        return md5(self.fn.encode("utf-8")).hexdigest()
 
     def hash_content(self):
         """Get md5 sum of target file (if exists)."""
