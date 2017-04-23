@@ -1,6 +1,5 @@
 """Extensions of :class:`luigi.Task`s more suitable for data science works.
 """
-import shelve
 from hashlib import md5
 import abc
 from warnings import warn
@@ -63,36 +62,45 @@ class HashableTarget(luigi.Target):
 
 
 class HashableLocalTarget(HashableTarget, luigi.LocalTarget):
-    """:class:`luigi.LocalTarget` with
-    :meth:`HashableLocalTarget.hash()` method."""
+    """:class:`luigi.LocalTarget` with :class:`HashableTarget` interface.
 
-    def _get_shelve_path(self):
+    The hash values are stored as a pickle.
+    The filename of the json file is the string which is added the suffix
+    '.input.pickle' after the target filename.
+    """
+
+    import pickle
+
+    def _get_hash_path(self):
         fn = self.fn
-        return fn + ".shelf"
+        return fn + ".input.pickle"
 
     def hash_container(self):
+        """Get md5 sum of target filename."""
         return md5(self.fn.encode("utf-8")).hexdigest()
 
     def hash_content(self):
+        """Get md5 sum of target file (if exists)."""
         return _calc_md5_of_file(self.fn)
 
-    def store_input_hash(self, content_hash):
-        shelve_path = self._get_shelve_path()
-        container_hash = self.hash_container()
-        with shelve.open(shelve_path, flag="c") as shelf:
-            portalocker.Lock(shelve_path, timeout=5)
-            shelf[container_hash] = content_hash
-            shelf.close()
+    def store_input_hash(self, input_hash):
+        """Store the hash value.
+
+        Hash value is `pickle`d at the location `self._get_hash_path()`.
+        """
+        hash_path = self._get_hash_path()
+        with portalocker.Lock(hash_path, mode="wb", timeout=5) as hash_file:
+            self.pickle.dump(input_hash, hash_file)
 
     def get_current_input_hash(self):
+        """Get the hash value of the Task instance who made the current output.
+
+        Hash value is `pickle`d at the location `self._get_hash_path()`.
+        """
         try:
-            shelve_path = self._get_shelve_path()
-            container_hash = self.hash_container()
-            with shelve.open(shelve_path, flag="c") as shelf:
-                portalocker.Lock(shelve_path, timeout=5)
-                content_hash = shelf[container_hash]
-                shelf.close()
-                return content_hash
+            hash_path = self._get_hash_path()
+            with portalocker.Lock(hash_path, mode="rb", timeout=5) as hash_file:
+                return self.pickle.load(hash_file)
         except KeyError:
             # It's thrown when hash key is not in cache_db.
             raise HashableTargetException
