@@ -34,11 +34,6 @@ class HashableTarget(luigi.Target):
     __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
-    def hash_container(self):
-        """The hash value of where output will be created."""
-        raise NotImplementedError
-
-    @abc.abstractmethod
     def store_input_hash(self, input_hash):
         # type: (list[str]) -> None
         """Store the hash value of the Task instance (not the hash of output)."""
