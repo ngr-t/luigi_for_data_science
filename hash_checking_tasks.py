@@ -87,8 +87,8 @@ class HashableLocalTarget(HashableTarget, luigi.LocalTarget):
             hash_path = self._get_hash_path()
             with portalocker.Lock(hash_path, mode="rb", timeout=5) as hash_file:
                 return self.pickle.load(hash_file)
-        except KeyError:
-            # It's thrown when hash key is not in cache_db.
+        except FileNotFoundError:
+            # It's thrown when pickled hash file does not exist.
             raise HashableTargetException
         except AttributeError:
             # It's thrown if the shelved task class isn't imported.
@@ -105,7 +105,7 @@ class TaskWithCheckingInputHash(luigi.Task):
             target.hash_content()
             for target
             in _to_iterable_if_not(self.input())]
-        return [self.__class__] + target_hashes
+        return [self.__class__] + target_hashes + list(self.param_args)
 
     def on_success(self):
         """Update hash values on success."""

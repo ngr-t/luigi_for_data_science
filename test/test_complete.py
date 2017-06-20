@@ -58,13 +58,15 @@ def setup_complete():
 @nose.with_setup(setup_complete)
 def test_complete():
     """Test for `TaskWithCheckingInputHash` and `HashableLocalTarget`."""
-    # The contents of `test_input1.csv` and `test_input2` are identical.
     # `SumupTask` with `filename=test_input1.csv` is already run in setup,
-    # so `SumupTask` for the both has to be considered as completed.
+    # This must be considered as completed.
     assert SumupTask(
         filename="test/test_input1.csv",
     ).complete()
-    assert SumupTask(
+    # Although contents of `test_input1.csv` and `test_input2` are identical,
+    # `Task` instantiated with different parameters
+    # should be considered as not completed.
+    assert not SumupTask(
         filename="test/test_input2.csv",
     ).complete()
 
