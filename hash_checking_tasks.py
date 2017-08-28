@@ -95,6 +95,15 @@ class HashableLocalTarget(HashableTarget, luigi.LocalTarget):
             raise HashableTargetException
 
 
+class HashableExternalFile(luigi.ExternalTask):
+    """Task for external file whose target is hashable."""
+
+    fn = luigi.Parameter()
+
+    def output(self):
+        return HashableLocalTarget(self.fn)
+
+
 class TaskWithCheckingInputHash(luigi.Task):
     """Task which checks hash code of inputs.
 
