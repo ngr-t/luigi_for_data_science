@@ -1,1 +1,1 @@
-from hash_checking_tasks import *
+from .hash_checking_tasks import *
