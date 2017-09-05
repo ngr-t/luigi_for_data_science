@@ -143,3 +143,9 @@ class TaskWithCheckingInputHash(luigi.Task):
             return False
 
         return False
+
+
+class WrapperTask(luigi.WrapperTask):
+
+    def complete(self):
+        return all(task.complete() for task in self.requires())
