@@ -101,7 +101,7 @@ class HashableExternalFile(luigi.ExternalTask):
     fn = luigi.Parameter()
 
     def output(self):
-        return HashableLocalTarget(self.fn)
+        return HashableLocalTarget(path=self.fn)
 
 
 class TaskWithCheckingInputHash(luigi.Task):
@@ -125,6 +125,9 @@ class TaskWithCheckingInputHash(luigi.Task):
                 self._hash_input())
         )
 
+    def validate(self):
+        pass
+
     def complete(self):
         """Check the completeness of `Task` more carefully than the default."""
         if not self.output().exists():
@@ -147,7 +150,11 @@ class TaskWithCheckingInputHash(luigi.Task):
             if stored_input_hash == current_input_hash:
                 # If the hash values are the same,
                 # this task is considered as completed.
-                return True
+                try:
+                    self.validate()
+                    return True
+                except:
+                    return False
         except HashableTargetException:
             return False
 
